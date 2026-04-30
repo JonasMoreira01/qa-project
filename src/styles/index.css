@@ -1,7 +1,234 @@
-@import './autofill.css';
-@import './scroll-bar-style.css';
-@import './input-date.css';
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
+    --primary: 225 90% 67%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+    --accent: 0 0% 96.1%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 4 74% 49%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 225 90% 67%;
+    --radius: 0.5rem;
+
+    --success: 152 77% 39%;
+    --success-foreground: 152 77% 15%;
+    --warning: 39 98% 56%;
+    --warning-foreground: 39 98% 18%;
+    --error: 4 86% 58%;
+    --error-foreground: 4 86% 98%;
+
+    --gray-25: 210 20% 99%;
+    --gray-50: 210 20% 98%;
+    --gray-100: 220 14% 96%;
+    --gray-200: 220 13% 91%;
+    --gray-300: 213 11% 84%;
+    --gray-400: 215 9% 65%;
+    --gray-500: 218 8% 46%;
+    --gray-600: 210 11% 34%;
+    --gray-700: 215 18% 27%;
+    --gray-800: 212 28% 17%;
+    --gray-900: 218 39% 11%;
+    --gray-950: 220 37% 8%;
+
+    --brand-25: 53 92% 97%;
+    --brand-50: 53 92% 95%;
+    --brand-100: 53 97% 88%;
+    --brand-200: 51 98% 79%;
+    --brand-300: 48 97% 72%;
+    --brand-400: 46 96% 53%;
+    --brand-500: 43 93% 47%;
+    --brand-600: 39 96% 40%;
+    --brand-700: 33 92% 33%;
+    --brand-800: 30 81% 29%;
+    --brand-900: 26 73% 26%;
+    --brand-950: 26 83% 14%;
+
+    --error-25: 4 88% 99%;
+    --error-50: 4 88% 97%;
+    --error-100: 4 95% 94%;
+    --error-200: 4 98% 89%;
+    --error-300: 4 96% 80%;
+    --error-400: 4 93% 69%;
+    --error-500: 4 86% 58%;
+    --error-600: 4 74% 49%;
+    --error-700: 4 76% 40%;
+    --error-800: 4 72% 33%;
+    --error-900: 8 65% 29%;
+    --error-950: 8 75% 19%;
+
+    --warning-25: 44 100% 98%;
+    --warning-50: 44 100% 96%;
+    --warning-100: 44 98% 89%;
+    --warning-200: 44 99% 77%;
+    --warning-300: 42 99% 65%;
+    --warning-400: 39 98% 56%;
+    --warning-500: 34 94% 50%;
+    --warning-600: 28 97% 44%;
+    --warning-700: 22 92% 37%;
+    --warning-800: 19 84% 31%;
+    --warning-900: 18 80% 26%;
+    --warning-950: 18 80% 17%;
+
+    --success-25: 144 78% 98%;
+    --success-50: 144 78% 96%;
+    --success-100: 141 74% 92%;
+    --success-200: 144 69% 80%;
+    --success-300: 148 63% 67%;
+    --success-400: 150 57% 54%;
+    --success-500: 152 77% 39%;
+    --success-600: 153 91% 30%;
+    --success-700: 155 91% 24%;
+    --success-800: 155 85% 20%;
+    --success-900: 156 83% 16%;
+    --success-950: 156 83% 11%;
+
+    --sidebar: 210 20% 98%;
+    --sidebar-background: 210 20% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 225 90% 67%;
+  }
+
+  .dark {
+    --background: 240 10% 6%;
+    --foreground: 0 0% 95%;
+    --card: 240 8% 9%;
+    --card-foreground: 0 0% 95%;
+    --popover: 240 8% 9%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 225 90% 67%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 5% 15%;
+    --secondary-foreground: 0 0% 95%;
+    --muted: 240 5% 15%;
+    --muted-foreground: 220 8% 55%;
+    --accent: 240 5% 18%;
+    --accent-foreground: 0 0% 95%;
+    --destructive: 0 72% 63%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5% 18%;
+    --input: 240 5% 18%;
+    --ring: 225 90% 67%;
+
+    --success: 152 77% 39%;
+    --success-foreground: 152 77% 18%;
+    --warning: 39 98% 56%;
+    --warning-foreground: 39 98% 18%;
+    --error: 4 86% 58%;
+    --error-foreground: 4 86% 98%;
+
+    --gray-25: 0 0% 98%;
+    --gray-50: 240 5% 96%;
+    --gray-100: 180 3% 94%;
+    --gray-200: 240 3% 93%;
+    --gray-300: 225 4% 82%;
+    --gray-400: 225 4% 60%;
+    --gray-500: 220 4% 54%;
+    --gray-600: 224 5% 40%;
+    --gray-700: 223 12% 23%;
+    --gray-800: 221 21% 15%;
+    --gray-900: 221 27% 12%;
+    --gray-950: 222 41% 8%;
+
+    --brand-25: 53 92% 97%;
+    --brand-50: 53 92% 95%;
+    --brand-100: 53 97% 88%;
+    --brand-200: 51 98% 79%;
+    --brand-300: 48 97% 72%;
+    --brand-400: 46 96% 53%;
+    --brand-500: 43 93% 47%;
+    --brand-600: 39 96% 40%;
+    --brand-700: 33 92% 33%;
+    --brand-800: 30 81% 29%;
+    --brand-900: 26 73% 26%;
+    --brand-950: 26 83% 14%;
+
+    --error-25: 4 88% 99%;
+    --error-50: 4 88% 97%;
+    --error-100: 4 95% 94%;
+    --error-200: 4 98% 89%;
+    --error-300: 4 96% 80%;
+    --error-400: 4 93% 69%;
+    --error-500: 4 86% 58%;
+    --error-600: 4 74% 49%;
+    --error-700: 4 76% 40%;
+    --error-800: 4 72% 33%;
+    --error-900: 8 65% 29%;
+    --error-950: 8 75% 19%;
+
+    --warning-25: 44 100% 98%;
+    --warning-50: 44 100% 96%;
+    --warning-100: 44 98% 89%;
+    --warning-200: 44 99% 77%;
+    --warning-300: 42 99% 65%;
+    --warning-400: 39 98% 56%;
+    --warning-500: 34 94% 50%;
+    --warning-600: 28 97% 44%;
+    --warning-700: 22 92% 37%;
+    --warning-800: 19 84% 31%;
+    --warning-900: 18 80% 26%;
+    --warning-950: 18 80% 17%;
+
+    --success-25: 144 78% 98%;
+    --success-50: 144 78% 96%;
+    --success-100: 141 74% 92%;
+    --success-200: 144 69% 80%;
+    --success-300: 148 63% 67%;
+    --success-400: 150 57% 54%;
+    --success-500: 152 77% 39%;
+    --success-600: 153 91% 30%;
+    --success-700: 155 91% 24%;
+    --success-800: 155 85% 20%;
+    --success-900: 156 83% 16%;
+    --success-950: 156 83% 11%;
+
+    --sidebar: 240 5.9% 10%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 225 90% 67%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@layer utilities {
+  .font-mono-qa {
+    font-family: 'DM Mono', monospace;
+  }
+}

@@ -1,8 +1,0 @@
-/* Date input styling for cross-browser consistency */
-input[type="date"] {
-  font-family: inherit;
-}
-
-input[type="date"]::-webkit-calendar-picker-indicator {
-  cursor: pointer;
-}
