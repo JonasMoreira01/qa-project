@@ -1,0 +1,7 @@
+@import './autofill.css';
+@import './scroll-bar-style.css';
+@import './input-date.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
