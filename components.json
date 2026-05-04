@@ -1,0 +1,12 @@
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "figma",
+  "baseColor": "slate",
+  "cssVariables": true,
+  "aliases": {
+    "utils": "@/lib/utils",
+    "components": "@/components/ui",
+    "hooks": "@/hooks"
+  },
+  "iconLibrary": "lucide"
+}

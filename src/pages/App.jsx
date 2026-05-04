@@ -1,51 +1,57 @@
 import { useState, useEffect, useCallback } from "react";
 import {
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  Badge,
-  Input,
-  Textarea,
-  Checkbox,
-  Label,
-  Avatar,
-  AvatarImage,
-  AvatarFallback,
-  Progress,
-  Skeleton,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  cn,
-} from "@inmediam/ui";
-import {
   createQASession,
   getQASession,
   listQASessions,
   updateChecklist,
   saveResult,
-  patchSession,
   formatDuration,
 } from "../lib/firestore";
 import { fetchClickUpTask, extractTaskId } from "../lib/clickup";
-import { generateQAReport, downloadMarkdown, copyToClipboard } from "../lib/markdown";
 import { useTimer } from "../hooks/useTimer";
+import { Button } from "../components/ui/button";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "../components/ui/card";
+import { Input } from "../components/ui/input";
 
-const severityLabel = {
-  low: "Baixa",
-  medium: "Média",
-  high: "Alta",
-  critical: "Crítica",
-};
+function cn(...classes) {
+  return classes.filter(Boolean).join(" ");
+}
 
-// ─── Main App Shell ───────────────────────────────────────────────────────────
+function getStatusBadgeClass(status) {
+  switch (status) {
+    case "testing": return "badge-testing";
+    case "done": return "badge-done";
+    default: return "badge-waiting";
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MAIN APP SHELL
+// ═══════════════════════════════════════════════════════════════════════════════
+
 export default function App() {
   const [view, setView] = useState("list");
   const [sessionId, setSessionId] = useState(null);
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [theme, setTheme] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("qa-theme");
+      if (saved) return saved;
+      return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    }
+    return "light";
+  });
+
+  useEffect(() => {
+    document.documentElement.classList.remove("light", "dark");
+    document.documentElement.classList.add(theme);
+    localStorage.setItem("qa-theme", theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === "light" ? "dark" : "light"));
+  };
 
   const loadSessions = useCallback(async () => {
     setLoading(true);
@@ -75,7 +81,7 @@ export default function App() {
   };
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
+    <div className="min-h-screen flex flex-col bg-[var(--color-bg-base)] text-[var(--color-text-primary)] transition-colors duration-300">
       {view === "list" ? (
         <SessionList
           sessions={sessions}
@@ -83,20 +89,95 @@ export default function App() {
           onOpen={openSession}
           onRefresh={loadSessions}
           onNew={(id) => openSession(id)}
+          theme={theme}
+          onToggleTheme={toggleTheme}
         />
       ) : (
-        <SessionView sessionId={sessionId} onBack={backToList} />
+        <SessionView 
+          sessionId={sessionId} 
+          onBack={backToList}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+        />
       )}
     </div>
   );
 }
 
-// ─── Session List ─────────────────────────────────────────────────────────────
-function SessionList({ sessions, loading, onOpen, onRefresh, onNew }) {
-  const [taskInput, setTaskInput] = useState("");
-  const [qaAnalyst, setQaAnalyst] = useState(
-    () => localStorage.getItem("qa_analyst") || ""
+// ═══════════════════════════════════════════════════════════════════════════════
+// TOP NAVIGATION
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function TopNav({ onRefresh, onToggleTheme, theme, showBack = false, onBack, title = "QA Platform", subtitle = "Gestão de testes" }) {
+  return (
+    <nav className="sticky top-0 z-50 flex items-center justify-between h-[60px] px-6 bg-[var(--color-bg-base)] border-b border-[var(--color-border)] shrink-0">
+      <div className="flex items-center gap-4">
+        {showBack && onBack && (
+          <button 
+            onClick={onBack}
+            className="flex items-center gap-1.5 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+            Voltar
+          </button>
+        )}
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 flex items-center justify-center rounded-lg bg-[var(--color-primary)] text-[var(--color-text-inverse)] font-semibold text-sm">
+            QA
+          </div>
+          <div>
+            <div className="text-sm font-semibold">{title}</div>
+            <div className="text-xs text-[var(--color-text-muted)]">{subtitle}</div>
+          </div>
+        </div>
+      </div>
+      
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" size="sm" onClick={onRefresh} title="Atualizar">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+            <path d="M3 3v5h5"/>
+            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+            <path d="M16 16h5v5"/>
+          </svg>
+        </Button>
+        <button 
+          onClick={onToggleTheme}
+          className="theme-toggle"
+          title={theme === "light" ? "Modo escuro" : "Modo claro"}
+        >
+          {theme === "light" ? (
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="5"/>
+              <line x1="12" y1="1" x2="12" y2="3"/>
+              <line x1="12" y1="21" x2="12" y2="23"/>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+              <line x1="1" y1="12" x2="3" y2="12"/>
+              <line x1="21" y1="12" x2="23" y2="12"/>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+            </svg>
+          )}
+        </button>
+      </div>
+    </nav>
   );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SESSION LIST
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function SessionList({ sessions, loading, onOpen, onRefresh, onNew, theme, onToggleTheme }) {
+  const [taskInput, setTaskInput] = useState("");
+  const [qaAnalyst, setQaAnalyst] = useState(() => localStorage.getItem("qa_analyst") || "");
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState(null);
 
@@ -126,145 +207,181 @@ function SessionList({ sessions, loading, onOpen, onRefresh, onNew }) {
     }
   };
 
-  const statusConfig = {
-    waiting: { label: "Aguardando", variant: "outline" },
-    testing: { label: "Testando", variant: "default" },
-    done: { label: "Concluído", variant: "success" },
+  const statusLabel = {
+    waiting: "Aguardando",
+    testing: "Testando",
+    done: "Concluído",
   };
 
-  const resultConfig = {
-    approved: { label: "Aprovado", color: "text-success-400" },
-    approved_with_notes: { label: "Aprovado c/ ressalvas", color: "text-warning-400" },
-    reproved: { label: "Reprovado", color: "text-error-400" },
+  const resultLabel = {
+    approved: "Aprovado",
+    approved_with_notes: "Aprovado c/ ressalvas",
+    reproved: "Reprovado",
+  };
+
+  const resultColor = {
+    approved: "var(--color-success)",
+    approved_with_notes: "var(--color-warning)",
+    reproved: "var(--color-error)",
   };
 
   return (
-    <div className="h-screen overflow-y-auto flex flex-col">
-      <header className="flex items-center justify-between px-8 py-5 border-b border-border sticky top-0 bg-background z-10">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-primary rounded-md flex items-center justify-center font-mono-qa font-medium text-sm text-primary-foreground tracking-wide">
-            QA
-          </div>
-          <div>
-            <div className="text-base font-semibold">QA Platform</div>
-            <div className="text-xs text-muted-foreground font-mono-qa">Gestão de testes</div>
-          </div>
-        </div>
-        <Button variant="ghost" size="sm" onClick={onRefresh}>
-          ↻ Atualizar
-        </Button>
-      </header>
+    <div className="flex flex-col min-h-0 flex-1">
+      <TopNav onRefresh={onRefresh} theme={theme} onToggleTheme={onToggleTheme} />
 
-      <div className="px-8 py-6 border-b border-border bg-card">
-        <div className="flex flex-col gap-2.5 max-w-[720px]">
-          <Input
-            placeholder="Seu nome (analista QA)"
-            value={qaAnalyst}
-            onChange={(e) => setQaAnalyst(e.target.value)}
-            className="max-w-[280px]"
-          />
-          <div className="flex gap-2.5">
-            <Input
-              className="flex-1 font-mono-qa"
-              placeholder="Link ou ID da tarefa no ClickUp"
-              value={taskInput}
-              onChange={(e) => setTaskInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleImport()}
-            />
-            <Button onClick={handleImport} disabled={importing}>
-              {importing ? "Importando..." : "Importar tarefa"}
-            </Button>
-          </div>
-        </div>
-        {error && (
-          <p className="text-sm text-error-400 mt-1 font-mono-qa">{error}</p>
-        )}
-      </div>
-
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4 p-7 content-start">
-        {loading ? (
-          <>
-            <SessionCardSkeleton />
-            <SessionCardSkeleton />
-            <SessionCardSkeleton />
-          </>
-        ) : sessions.length === 0 ? (
-          <div className="col-span-full flex flex-col items-center gap-2 py-15 text-muted-foreground">
-            <div className="text-4xl mb-2">📋</div>
-            <div>Nenhuma sessão ainda.</div>
-            <div className="text-sm text-muted-foreground mb-6">
-              Importe uma tarefa para começar.
+      {/* Import Bar */}
+      <section className="border-b border-[var(--color-border)] bg-[var(--color-bg-subtle)]/50 shrink-0">
+        <div className="max-w-4xl mx-auto px-6 py-5 space-y-4">
+          <div className="flex gap-3 items-start">
+            <div className="w-56 shrink-0">
+              <label className="form-label">Analista QA</label>
+              <Input
+                placeholder="Seu nome"
+                value={qaAnalyst}
+                onChange={(e) => setQaAnalyst(e.target.value)}
+              />
             </div>
-            <Card className="w-[280px] bg-secondary border-dashed">
-              <CardContent className="p-4">
-                <div className="font-mono-qa text-[10px] text-muted-foreground uppercase tracking-wide mb-2">
-                  Exemplo
-                </div>
-                <div className="text-sm font-medium mb-1.5">Feature: Novo dashboard</div>
-                <div className="text-xs text-muted-foreground font-mono-qa">Inboxes · João QA</div>
-              </CardContent>
-            </Card>
+            <div className="flex-1">
+              <label className="form-label">Tarefa ClickUp</label>
+              <div className="flex gap-3">
+                <Input
+                  placeholder="Link ou ID da tarefa"
+                  value={taskInput}
+                  onChange={(e) => setTaskInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleImport()}
+                />
+                <Button onClick={handleImport} disabled={importing} className="shrink-0 mt-0">
+                  {importing ? "..." : "Importar"}
+                </Button>
+              </div>
+            </div>
           </div>
-        ) : (
-          sessions.map((s) => (
-            <Card
-              key={s.id}
-              className={cn(
-                "cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-lg",
-                s.status === "testing" && "border-l-[3px] border-l-primary",
-                s.status === "done" && "border-l-[3px] border-l-success-400",
-                s.status === "waiting" && "border-l-[3px] border-l-muted-foreground"
-              )}
-              onClick={() => onOpen(s.id)}
-            >
-              <CardContent className="p-[18px] relative">
-                <div className="flex items-center justify-between mb-2.5">
-                  <Badge
-                    variant={statusConfig[s.status]?.variant || "outline"}
-                    className="font-mono-qa text-[11px] px-2 py-0.5 font-medium"
+          {error && <p className="text-sm text-[var(--color-error)]">{error}</p>}
+        </div>
+      </section>
+
+      {/* Sessions Grid - área principal com scroll */}
+      <section className="flex-1 overflow-auto p-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-lg font-semibold">Sessões de QA</h2>
+            <span className="text-sm text-[var(--color-text-muted)]">{sessions.length} {sessions.length === 1 ? 'sessão' : 'sessões'}</span>
+          </div>
+          
+          {loading ? (
+            <div className="py-20 text-center text-[var(--color-text-muted)]">
+              Carregando sessões...
+            </div>
+          ) : sessions.length === 0 ? (
+            <div className="py-20 text-center">
+              <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-[var(--color-bg-subtle)] flex items-center justify-center">
+                <span className="text-4xl opacity-40">📋</span>
+              </div>
+              <div className="text-lg font-medium text-[var(--color-text-secondary)]">Nenhuma sessão ainda</div>
+              <div className="text-sm text-[var(--color-text-muted)] mt-2">
+                Importe uma tarefa do ClickUp para começar
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {sessions.map((s) => (
+                <button
+                  key={s.id}
+                  className="group text-left w-full h-[160px]"
+                  onClick={() => onOpen(s.id)}
+                >
+                  <div 
+                    className={cn(
+                      "h-full relative bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-xl p-4 flex flex-col transition-all duration-200",
+                      "hover:border-[var(--color-accent)]/50 hover:shadow-lg hover:shadow-[var(--color-accent)]/5 hover:-translate-y-0.5"
+                    )}
+                    style={{
+                      borderTop: `3px solid ${
+                        s.status === "testing" 
+                          ? "var(--color-info)" 
+                          : s.status === "done" 
+                          ? "var(--color-success)" 
+                          : "var(--color-text-muted)"
+                      }`
+                    }}
                   >
-                    {statusConfig[s.status]?.label || s.status}
-                  </Badge>
-                  {s.taskData?.priority?.color && (
-                    <div
-                      className="w-2 h-2 rounded-full"
-                      style={{ background: s.taskData.priority.color }}
-                      title={s.taskData.priority.label}
-                    />
-                  )}
-                </div>
-                <div className="text-[15px] font-medium leading-tight mb-2">
-                  {s.taskData?.name || s.taskId}
-                </div>
-                <div className="text-xs text-muted-foreground font-mono-qa flex gap-1.5">
-                  <span>{s.taskData?.list || "—"}</span>
-                  <span>·</span>
-                  <span>{s.qaAnalyst}</span>
-                </div>
-                {s.status === "done" && s.result && (
-                  <div className={cn("text-xs font-semibold mt-2 font-mono-qa", resultConfig[s.result]?.color)}>
-                    {resultConfig[s.result]?.label}
+                    {/* Header */}
+                    <div className="flex items-center justify-between mb-2">
+                      <span className={cn("badge text-[10px]", getStatusBadgeClass(s.status))}>
+                        {statusLabel[s.status] || s.status}
+                      </span>
+                      {s.taskData?.priority?.color && (
+                        <span
+                          className="w-2.5 h-2.5 rounded-full ring-2 ring-[var(--color-bg-card)]"
+                          style={{ background: s.taskData.priority.color }}
+                          title={s.taskData.priority.label}
+                        />
+                      )}
+                    </div>
+                    
+                    {/* Task Name - flex-1 para ocupar espaço disponível */}
+                    <div className="text-sm font-semibold line-clamp-2 text-[var(--color-text-primary)] group-hover:text-[var(--color-accent)] transition-colors">
+                      {s.taskData?.name || s.taskId}
+                    </div>
+                    
+                    {/* Meta - shrink to bottom */}
+                    <div className="mt-auto pt-3 border-t border-[var(--color-border-subtle)]">
+                      <div className="text-xs text-[var(--color-text-muted)] flex items-center gap-2">
+                        <span className="truncate max-w-[80px]">{s.taskData?.list || "—"}</span>
+                        <span className="text-[var(--color-border)]">•</span>
+                        <span className="truncate">{s.qaAnalyst}</span>
+                      </div>
+                      <div className="flex items-center justify-between mt-2">
+                        {s.status === "done" && s.result ? (
+                          <span 
+                            className="text-xs font-semibold"
+                            style={{ color: resultColor[s.result] }}
+                          >
+                            {resultLabel[s.result]}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-[var(--color-text-muted)]">
+                            {formatDuration(s.totalTimeMs)}
+                          </span>
+                        )}
+                        <svg 
+                          className="w-4 h-4 text-[var(--color-text-muted)] group-hover:text-[var(--color-accent)] transition-colors" 
+                          xmlns="http://www.w3.org/2000/svg" 
+                          viewBox="0 0 24 24" 
+                          fill="none" 
+                          stroke="currentColor" 
+                          strokeWidth="2" 
+                          strokeLinecap="round" 
+                          strokeLinejoin="round"
+                        >
+                          <path d="M9 18l6-6-6-6"/>
+                        </svg>
+                      </div>
+                    </div>
                   </div>
-                )}
-                <div className="absolute top-[18px] right-[18px] font-mono-qa text-[11px] text-muted-foreground">
-                  {formatDuration(s.totalTimeMs)}
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
-      </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Footer fixo */}
+      <footer className="shrink-0 py-4 text-center border-t border-[var(--color-border)] bg-[var(--color-bg-subtle)]/30">
+        <p className="text-xs text-[var(--color-text-muted)] tracking-wide">QA Platform © 2024</p>
+      </footer>
     </div>
   );
 }
 
-// ─── Session View ─────────────────────────────────────────────────────────────
-function SessionView({ sessionId, onBack }) {
+// ═══════════════════════════════════════════════════════════════════════════════
+// SESSION VIEW
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function SessionView({ sessionId, onBack, theme, onToggleTheme }) {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [exportMenu, setExportMenu] = useState(false);
-  const [copied, setCopied] = useState(false);
 
   const [result, setResult] = useState("");
   const [severity, setSeverity] = useState("");
@@ -293,17 +410,7 @@ function SessionView({ sessionId, onBack }) {
 
   useEffect(() => {
     load();
-  }, [sessionId]);
-
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (exportMenu && !e.target.closest('.export-menu-wrapper')) {
-        setExportMenu(false);
-      }
-    };
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, [exportMenu]);
+  }, []);
 
   const toggleCheck = async (itemId) => {
     const updated = session.checklist.map((c) =>
@@ -336,341 +443,378 @@ function SessionView({ sessionId, onBack }) {
     }
   };
 
-  const handleExportMarkdown = () => {
-    const report = generateQAReport(session);
-    const filename = `qa-report-${session.taskId}-${new Date().getTime()}.md`;
-    downloadMarkdown(report, filename);
-    setExportMenu(false);
-  };
-
-  const handleCopyMarkdown = () => {
-    const report = generateQAReport(session);
-    copyToClipboard(report);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-    setExportMenu(false);
-  };
-
-  if (loading) return <div className="flex items-center justify-center h-screen text-muted-foreground font-mono-qa">Carregando sessão...</div>;
-  if (!session) return <div className="flex items-center justify-center h-screen text-muted-foreground font-mono-qa">Sessão não encontrada.</div>;
+  if (loading) {
+    return (
+      <div className="flex flex-col min-h-screen">
+        <TopNav onRefresh={() => {}} theme={theme} onToggleTheme={onToggleTheme} showBack onBack={onBack} />
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-[var(--color-text-muted)]">Carregando sessão...</p>
+        </div>
+      </div>
+    );
+  }
+  if (!session) {
+    return (
+      <div className="flex flex-col min-h-screen">
+        <TopNav onRefresh={() => {}} theme={theme} onToggleTheme={onToggleTheme} showBack onBack={onBack} />
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-[var(--color-text-muted)]">Sessão não encontrada.</p>
+        </div>
+      </div>
+    );
+  }
 
   const task = session.taskData || {};
   const done = session.status === "done";
   const checklistDone = session.checklist?.filter((c) => c.checked).length || 0;
   const checklistTotal = session.checklist?.length || 0;
-  const checklistPercent = checklistTotal ? (checklistDone / checklistTotal) * 100 : 0;
 
   return (
-    <div className="grid grid-cols-[300px_1fr] h-screen overflow-hidden">
-      {/* ── Sidebar ── */}
-      <aside className="bg-card border-r border-border overflow-y-auto p-5 flex flex-col gap-5">
-        <div className="flex gap-2 items-center">
-          <Button variant="outline" size="sm" onClick={onBack} className="flex-1 text-left">
-            ← Voltar
-          </Button>
-          <DropdownMenu open={exportMenu} onOpenChange={setExportMenu}>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="w-9 h-9" title="Exportar relatório">
-                ⬇
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={handleExportMarkdown}>
-                📥 Download .md
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleCopyMarkdown}>
-                {copied ? "✓ Copiado!" : "📋 Copiar"}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+    <div className="flex flex-col min-h-screen">
+      <TopNav onRefresh={load} theme={theme} onToggleTheme={onToggleTheme} showBack onBack={onBack} title={task.name?.slice(0, 30) || `Task #${session.taskId}`} />
 
-        <Card className="bg-secondary">
-          <CardContent className="p-4 flex flex-col gap-2.5">
-            <div className="font-mono-qa text-xs">
-              <a href={task.url} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                #{session.taskId}
-              </a>
+      <main className="flex-1 overflow-auto max-w-3xl mx-auto w-full p-6 space-y-6">
+        {/* Task Card */}
+        <Card className="bg-gradient-to-br from-[var(--color-bg-card)] to-[var(--color-bg-subtle)]/30">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className={cn("badge", getStatusBadgeClass(session.status))}>
+                  {session.status === "waiting" ? "Aguardando" : session.status === "testing" ? "Testando" : "Concluído"}
+                </span>
+                <a
+                  href={task.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm text-[var(--color-accent)] hover:underline font-medium"
+                >
+                  #{session.taskId}
+                </a>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)]">
+                <svg className="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline points="12,6 12,12 16,14"/>
+                </svg>
+                {formatDuration(session.totalTimeMs)}
+              </div>
             </div>
-            <div className="text-[15px] font-semibold leading-tight">{task.name}</div>
-
-            <div className="flex flex-col gap-1.5 border-t border-border pt-2.5">
-              <Field label="Lista" value={task.list} />
-              <Field label="Pasta" value={task.folder} />
-              <Field
-                label="Prioridade"
-                value={
-                  task.priority ? (
-                    <span style={{ color: task.priority.color }}>
-                      ● {task.priority.label}
-                    </span>
-                  ) : null
-                }
-              />
-              <Field label="Pontos" value={task.points} />
-              <Field
-                label="Status"
-                value={
-                  task.status ? (
-                    <span style={{ color: task.statusColor }}>
-                      {task.status}
-                    </span>
-                  ) : null
-                }
-              />
+            <CardTitle className="text-xl mt-3">{task.name}</CardTitle>
+            <CardDescription className="text-[var(--color-text-secondary)] mt-1">
+              {task.list} {task.folder && `• ${task.folder}`}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
+              <div>
+                <span className="text-xs text-[var(--color-text-muted)] uppercase tracking-wide block mb-1">Prioridade</span>
+                <p className="font-medium flex items-center gap-1.5" style={{ color: task.priority?.color }}>
+                  <span className="w-2 h-2 rounded-full" style={{ background: task.priority?.color }}></span>
+                  {task.priority?.label || "—"}
+                </p>
+              </div>
+              <div>
+                <span className="text-xs text-[var(--color-text-muted)] uppercase tracking-wide block mb-1">Status</span>
+                <p className="font-medium">{task.status || "—"}</p>
+              </div>
+              <div>
+                <span className="text-xs text-[var(--color-text-muted)] uppercase tracking-wide block mb-1">Pontos</span>
+                <p>{task.points || "—"}</p>
+              </div>
+              <div>
+                <span className="text-xs text-[var(--color-text-muted)] uppercase tracking-wide block mb-1">Analista</span>
+                <p>{session.qaAnalyst}</p>
+              </div>
             </div>
 
             {task.assignees?.length > 0 && (
-              <div className="flex flex-col gap-1.5">
-                <div className="text-[11px] text-muted-foreground font-mono-qa uppercase tracking-wide">
-                  Responsáveis
-                </div>
-                <div className="flex flex-wrap gap-1.5">
+              <div className="mt-5 pt-4 border-t border-[var(--color-border-subtle)]">
+                <span className="text-xs text-[var(--color-text-muted)] uppercase tracking-wide block mb-2">Responsáveis</span>
+                <div className="flex gap-2">
                   {task.assignees.map((u) => (
-                    <DSAvatar key={u.id} user={u} />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {task.watchers?.length > 0 && (
-              <div className="flex flex-col gap-1.5">
-                <div className="text-[11px] text-muted-foreground font-mono-qa uppercase tracking-wide">
-                  Revisores
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {task.watchers.map((u) => (
-                    <DSAvatar key={u.id} user={u} />
+                    <div
+                      key={u.id}
+                      className="w-8 h-8 rounded-full bg-[var(--color-bg-subtle)] flex items-center justify-center text-xs font-medium border border-[var(--color-border)]"
+                      title={u.name}
+                    >
+                      {u.avatar ? (
+                        <img src={u.avatar} alt={u.name} className="w-full h-full rounded-full object-cover" />
+                      ) : (
+                        u.initials
+                      )}
+                    </div>
                   ))}
                 </div>
               </div>
             )}
 
             {task.tags?.length > 0 && (
-              <div className="flex flex-wrap gap-1">
+              <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-[var(--color-border-subtle)]">
                 {task.tags.map((t) => (
-                  <Badge key={t} variant="outline" className="text-[11px] px-2 py-0 font-mono-qa">
+                  <span
+                    key={t}
+                    className="text-xs px-2.5 py-1 rounded-md bg-[var(--color-bg-subtle)] text-[var(--color-text-secondary)] border border-[var(--color-border)]"
+                  >
                     {t}
-                  </Badge>
+                  </span>
                 ))}
               </div>
             )}
           </CardContent>
         </Card>
 
-        <div className="px-1">
-          <div className="text-[11px] text-muted-foreground font-mono-qa uppercase tracking-wide">
-            Analista QA
-          </div>
-          <div className="text-sm font-medium mt-1">{session.qaAnalyst}</div>
-        </div>
-      </aside>
-
-      {/* ── Main Content ── */}
-      <main className="overflow-y-auto p-7 flex flex-col gap-7">
-        {/* Timer */}
-        <section className="bg-card border border-border rounded-lg p-5 text-center">
-          <div className="text-[11px] font-mono-qa uppercase tracking-wider text-muted-foreground mb-3.5">
-            Tempo de teste
-          </div>
-          <div className="font-mono-qa text-5xl font-normal tracking-[4px] text-foreground mb-5 leading-none">
+        {/* Timer Section */}
+        <div className="bg-[var(--color-bg-subtle)]/50 border border-[var(--color-border)] rounded-xl p-6 text-center">
+          <div className="text-xs font-medium uppercase tracking-wider text-[var(--color-text-muted)] mb-2">Tempo de teste</div>
+          <div className="text-5xl font-semibold tracking-tight mb-4 font-mono text-[var(--color-text-primary)]">
             {formatMs(timer.displayMs)}
           </div>
           {!done && (
-            <div className="flex gap-2.5 justify-center">
+            <div className="flex gap-3 justify-center">
               {!timer.running ? (
-                <Button size="lg" onClick={timer.start}>
-                  ▶ {session.status === "waiting" ? "Iniciar teste" : "Retomar"}
+                <Button onClick={timer.start} size="lg">
+                  {session.status === "waiting" ? "▶ Iniciar teste" : "▶ Retomar"}
                 </Button>
               ) : (
-                <>
-                  <Button variant="warning" size="lg" onClick={timer.pause}>
-                    ⏸ Pausar
-                  </Button>
-                  <Button variant="destructive" size="sm" onClick={timer.stop}>
-                    ⏹ Parar
-                  </Button>
-                </>
+                <Button variant="secondary" size="lg" onClick={timer.pause}>
+                  ⏸ Pausar
+                </Button>
+              )}
+              {timer.running && (
+                <Button variant="ghost" size="lg" onClick={timer.stop}>
+                  ⏹ Parar
+                </Button>
               )}
             </div>
           )}
           {done && (
-            <div className="font-mono-qa text-sm text-success-400">
-              Tempo registrado: {formatDuration(session.totalTimeMs)}
-            </div>
+            <p className="text-sm text-[var(--color-text-muted)]">
+              Tempo total: {formatDuration(session.totalTimeMs)}
+            </p>
           )}
-        </section>
+        </div>
 
         {/* Checklist */}
-        <section className="bg-card border border-border rounded-lg p-5">
-          <div className="flex items-center justify-between mb-2.5">
-            <div className="text-[11px] font-mono-qa uppercase tracking-wider text-muted-foreground">
-              Checklist
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <svg className="w-5 h-5 text-[var(--color-text-muted)]" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M9 11l3 3L22 4"/>
+                  <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                </svg>
+                Checklist
+              </CardTitle>
+              <span className="text-sm text-[var(--color-text-muted)] bg-[var(--color-bg-subtle)] px-2 py-1 rounded">
+                {checklistDone}/{checklistTotal}
+              </span>
             </div>
-            <div className="font-mono-qa text-xs text-muted-foreground">
-              {checklistDone}/{checklistTotal}
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="h-2 bg-[var(--color-border)] rounded-full overflow-hidden mb-5">
+              <div
+                className="h-full bg-[var(--color-success)] transition-all duration-300"
+                style={{
+                  width: `${checklistTotal ? (checklistDone / checklistTotal) * 100 : 0}%`,
+                }}
+              />
             </div>
-          </div>
-          <Progress value={checklistPercent} className="mb-4 h-1" />
-          <div className="flex flex-col gap-2">
-            {session.checklist?.map((item) => (
-              <Label
-                key={item.id}
-                className={cn(
-                  "flex items-center gap-2.5 p-2.5 border border-border rounded-md cursor-pointer transition-colors text-foreground",
-                  item.checked && "text-muted-foreground bg-success-400/5 border-transparent line-through"
-                )}
-              >
-                <Checkbox
-                  checked={item.checked}
-                  onCheckedChange={() => !done && toggleCheck(item.id)}
-                  disabled={done}
-                  className="data-[state=checked]:bg-success-400 data-[state=checked]:border-success-400"
-                />
-                <span>{item.label}</span>
-              </Label>
-            ))}
-          </div>
-        </section>
+            <div className="space-y-2">
+              {session.checklist?.map((item) => (
+                <label
+                  key={item.id}
+                  className={cn(
+                    "flex items-center gap-3 p-3.5 rounded-lg border cursor-pointer transition-all",
+                    item.checked
+                      ? "bg-[var(--color-success-bg)] border-transparent"
+                      : "border-[var(--color-border)] hover:bg-[var(--color-bg-subtle)] hover:border-[var(--color-text-muted)]"
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    checked={item.checked}
+                    onChange={() => !done && toggleCheck(item.id)}
+                    disabled={done}
+                    className="checkbox-custom"
+                  />
+                  <span className={cn("text-sm", item.checked && "line-through opacity-60")}>
+                    {item.label}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Bugs */}
-        <section className="bg-card border border-border rounded-lg p-5">
-          <div className="text-[11px] font-mono-qa uppercase tracking-wider text-muted-foreground mb-3.5">
-            Bugs encontrados
-          </div>
-          {!done && (
-            <div className="flex gap-2 mb-3">
-              <Input
-                placeholder="Descreva o bug brevemente..."
-                value={bugInput}
-                onChange={(e) => setBugInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addBug()}
-              />
-              <Button variant="outline" onClick={addBug}>
-                + Adicionar
-              </Button>
-            </div>
-          )}
-          <div className="flex flex-col gap-1.5">
-            {bugs.length === 0 && (
-              <div className="text-sm text-muted-foreground italic">Nenhum bug registrado.</div>
-            )}
-            {bugs.map((b) => (
-              <div
-                key={b.id}
-                className="flex items-start gap-2.5 p-2.5 bg-error-400/5 border border-error-400/15 rounded-md"
-              >
-                <div className="w-1.5 h-1.5 rounded-full bg-error-400 flex-shrink-0 mt-1" />
-                <span className="flex-1 text-sm text-foreground">{b.description}</span>
-                {!done && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0 text-muted-foreground hover:text-error-400"
-                    onClick={() => removeBug(b.id)}
-                  >
-                    ×
-                  </Button>
-                )}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <svg className="w-5 h-5 text-[var(--color-error)]" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              Bugs encontrados
+              {bugs.length > 0 && (
+                <span className="text-xs bg-[var(--color-error-bg)] text-[var(--color-error)] px-2 py-0.5 rounded-full">
+                  {bugs.length}
+                </span>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            {!done && (
+              <div className="flex gap-3 mb-4">
+                <Input
+                  className="flex-1"
+                  placeholder="Descreva o bug..."
+                  value={bugInput}
+                  onChange={(e) => setBugInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && addBug()}
+                />
+                <Button variant="secondary" onClick={addBug}>+ Add</Button>
               </div>
-            ))}
-          </div>
-        </section>
+            )}
+            <div className="space-y-2">
+              {bugs.length === 0 ? (
+                <p className="text-sm text-[var(--color-text-muted)] py-4 text-center bg-[var(--color-bg-subtle)]/50 rounded-lg">
+                  Nenhum bug registrado
+                </p>
+              ) : (
+                bugs.map((b) => (
+                  <div key={b.id} className="flex items-center gap-3 p-3 bg-[var(--color-error-bg)]/50 rounded-lg border border-[var(--color-error)]/20">
+                    <span className="w-2 h-2 rounded-full bg-[var(--color-error)] shrink-0" />
+                    <span className="flex-1 text-sm">{b.description}</span>
+                    {!done && (
+                      <button
+                        className="text-lg text-[var(--color-text-muted)] hover:text-[var(--color-error)] p-1"
+                        onClick={() => removeBug(b.id)}
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Feedback */}
-        <section className="bg-card border border-border rounded-lg p-5">
-          <div className="text-[11px] font-mono-qa uppercase tracking-wider text-muted-foreground mb-3.5">
-            Feedback / Observações
-          </div>
-          <Textarea
-            placeholder="Descreva o que foi testado, comportamentos encontrados, pontos de atenção..."
-            value={feedback}
-            onChange={(e) => !done && setFeedback(e.target.value)}
-            disabled={done}
-            rows={4}
-          />
-        </section>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <svg className="w-5 h-5 text-[var(--color-text-muted)]" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+              Feedback / Observações
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <textarea
+              className="form-textarea min-h-[120px]"
+              placeholder="Descreva o que foi testado, comportamentos encontrados..."
+              value={feedback}
+              onChange={(e) => !done && setFeedback(e.target.value)}
+              disabled={done}
+              rows={5}
+            />
+          </CardContent>
+        </Card>
 
-        <section className="bg-card border border-border rounded-lg p-5">
-          <div className="text-[11px] font-mono-qa uppercase tracking-wider text-muted-foreground mb-3.5">
-            Notas internas (não vai para o dev)
-          </div>
-          <Textarea
-            placeholder="Notas do QA para o time interno..."
-            value={notes}
-            onChange={(e) => !done && setNotes(e.target.value)}
-            disabled={done}
-            rows={3}
-            className="bg-warning-400/5 border-warning-400/15"
-          />
-        </section>
+        {/* Notes */}
+        <Card className="border-[var(--color-warning)]/30 bg-[var(--color-warning-bg)]/20">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <svg className="w-5 h-5 text-[var(--color-warning)]" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14,2 14,8 20,8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+              </svg>
+              Notas internas
+            </CardTitle>
+            <CardDescription className="text-[var(--color-text-muted)] text-xs">Não visível para devs</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <textarea
+              className="form-textarea min-h-[80px]"
+              placeholder="Notas do QA para o time interno..."
+              value={notes}
+              onChange={(e) => !done && setNotes(e.target.value)}
+              disabled={done}
+              rows={3}
+            />
+          </CardContent>
+        </Card>
 
         {/* Result */}
-        <section className="bg-card border border-border rounded-lg p-5">
-          <div className="text-[11px] font-mono-qa uppercase tracking-wider text-muted-foreground mb-3.5">
-            Resultado
-          </div>
-          <div className="grid grid-cols-3 gap-2.5">
-            {[
-              { value: "approved", label: "Aprovado", icon: "✓", variant: "success" },
-              { value: "approved_with_notes", label: "Aprovado c/ ressalvas", icon: "~", variant: "warning" },
-              { value: "reproved", label: "Reprovado", icon: "✕", variant: "destructive" },
-            ].map((opt) => (
-              <Button
-                key={opt.value}
-                variant={result === opt.value ? opt.variant : "outline"}
-                className={cn(
-                  "flex flex-col items-center gap-1.5 py-4",
-                  result !== opt.value && "hover:bg-accent"
-                )}
-                onClick={() => !done && setResult(opt.value)}
-                disabled={done}
-              >
-                <span className="text-xl font-semibold">{opt.icon}</span>
-                {opt.label}
-              </Button>
-            ))}
-          </div>
-
-          {(result === "reproved" || result === "approved_with_notes") && (
-            <div className="mt-4">
-              <div className="text-[11px] font-mono-qa uppercase tracking-wider text-muted-foreground mb-2.5">
-                Severidade
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                {[
-                  { s: "low", color: "border-success-400 bg-success-400/10 text-success-400" },
-                  { s: "medium", color: "border-warning-400 bg-warning-400/10 text-warning-400" },
-                  { s: "high", color: "border-orange-400 border-orange-400/60 bg-orange-400/10 text-orange-400" },
-                  { s: "critical", color: "border-error-400 bg-error-400/10 text-error-400" },
-                ].map((opt) => (
-                  <Button
-                    key={opt.s}
-                    variant={severity === opt.s ? "outline" : "outline"}
-                    size="sm"
-                    className={cn(
-                      "font-mono-qa text-xs",
-                      severity === opt.s && opt.color,
-                      severity !== opt.s && "hover:bg-accent"
-                    )}
-                    onClick={() => !done && setSeverity(opt.s)}
-                    disabled={done}
-                  >
-                    {severityLabel[opt.s]}
-                  </Button>
-                ))}
-              </div>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <svg className="w-5 h-5 text-[var(--color-text-muted)]" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="20,6 9,17 4,12"/>
+              </svg>
+              Resultado
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="grid grid-cols-3 gap-3 mb-6">
+              {[
+                { value: "approved", label: "✓ Aprovado", icon: "✓" },
+                { value: "approved_with_notes", label: "~ Aprovado c/ ressalvas", icon: "~" },
+                { value: "reproved", label: "✕ Reprovado", icon: "✕" },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  className={cn(
+                    "result-option text-sm py-3",
+                    result === opt.value && (
+                      opt.value === "approved" ? "selected-approved" :
+                      opt.value === "approved_with_notes" ? "selected-warning" : "selected-rejected"
+                    )
+                  )}
+                  onClick={() => !done && setResult(opt.value)}
+                  disabled={done}
+                >
+                  <span className="block text-lg mb-1">{opt.icon}</span>
+                  {opt.label.split(" ")[1] || opt.label}
+                </button>
+              ))}
             </div>
-          )}
-        </section>
 
+            {(result === "reproved" || result === "approved_with_notes") && (
+              <div className="pt-4 border-t border-[var(--color-border-subtle)]">
+                <div className="text-sm font-medium mb-3 text-[var(--color-text-secondary)]">Severidade</div>
+                <div className="flex flex-wrap gap-2">
+                  {["low", "medium", "high", "critical"].map((s) => (
+                    <button
+                      key={s}
+                      className={cn(
+                        "severity-btn px-4 py-2",
+                        severity === s && `selected-${s}`
+                      )}
+                      onClick={() => !done && setSeverity(s)}
+                      disabled={done}
+                    >
+                      {s === "low" ? "Baixa" : s === "medium" ? "Média" : s === "high" ? "Alta" : "Crítica"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Save Bar */}
         {!done && (
-          <div className="flex items-center gap-4 pb-2">
-            <Button variant="success" size="lg" onClick={handleSaveResult} disabled={saving || !result}>
+          <div className="flex items-center gap-4 pt-4 pb-8">
+            <Button size="lg" onClick={handleSaveResult} disabled={saving || !result}>
               {saving ? "Salvando..." : "Finalizar sessão de QA"}
             </Button>
             {!result && (
-              <span className="text-xs text-muted-foreground font-mono-qa">
+              <span className="text-sm text-[var(--color-text-muted)]">
                 Selecione um resultado para finalizar
               </span>
             )}
@@ -678,69 +822,35 @@ function SessionView({ sessionId, onBack }) {
         )}
 
         {done && (
-          <Card className="bg-success-400/5 border-success-400/25">
-            <CardContent className="flex items-center gap-2.5 justify-center py-4 text-success-400 font-medium">
-              <span className="text-lg">✓</span>
-              Sessão finalizada
-            </CardContent>
-          </Card>
+          <div className="text-center py-8 bg-[var(--color-success-bg)] rounded-xl border border-[var(--color-success)]/20 mb-8">
+            <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-[var(--color-success)]/20 flex items-center justify-center">
+              <span className="text-3xl">✓</span>
+            </div>
+            <p className="text-lg font-semibold text-[var(--color-success)]">Sessão finalizada</p>
+            <p className="text-sm text-[var(--color-text-muted)] mt-1">
+              Resultado: {result === "approved" ? "Aprovado" : result === "approved_with_notes" ? "Aprovado c/ ressalvas" : "Reprovado"}
+            </p>
+          </div>
         )}
       </main>
+
+      {/* Footer fixo */}
+      <footer className="shrink-0 py-4 text-center border-t border-[var(--color-border)] bg-[var(--color-bg-subtle)]/30">
+        <p className="text-xs text-[var(--color-text-muted)] tracking-wide">QA Platform © 2024</p>
+      </footer>
     </div>
   );
 }
 
-// ─── Small Components ─────────────────────────────────────────────────────────
-function Field({ label, value }) {
-  if (!value && value !== 0) return null;
-  return (
-    <div className="flex justify-between items-center gap-2">
-      <span className="text-[11px] text-muted-foreground font-mono-qa uppercase tracking-wide">{label}</span>
-      <span className="text-sm text-foreground text-right">{value}</span>
-    </div>
-  );
-}
+// ═══════════════════════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════════════════════
 
-function DSAvatar({ user }) {
-  return (
-    <Avatar className="h-7 w-7 border border-border">
-      {user.avatar ? (
-        <AvatarImage src={user.avatar} alt={user.name} />
-      ) : (
-        <AvatarFallback className="text-[11px] font-semibold bg-secondary text-foreground">
-          {user.initials}
-        </AvatarFallback>
-      )}
-    </Avatar>
-  );
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatMs(ms) {
   if (!ms) return "00:00:00";
   const s = Math.floor(ms / 1000);
-  const h = Math.floor(s / 3600)
-    .toString()
-    .padStart(2, "0");
-  const m = Math.floor((s % 3600) / 60)
-    .toString()
-    .padStart(2, "0");
+  const h = Math.floor(s / 3600).toString().padStart(2, "0");
+  const m = Math.floor((s % 3600) / 60).toString().padStart(2, "0");
   const sec = (s % 60).toString().padStart(2, "0");
   return `${h}:${m}:${sec}`;
-}
-
-function SessionCardSkeleton() {
-  return (
-    <Card className="animate-pulse">
-      <CardContent className="p-[18px]">
-        <div className="flex items-center justify-between mb-3">
-          <Skeleton className="w-[60px] h-4" />
-          <Skeleton className="w-2 h-2 rounded-full" />
-        </div>
-        <Skeleton className="w-full h-4 mb-2" />
-        <Skeleton className="w-[70%] h-3" />
-        <Skeleton className="w-10 h-2.5 mt-2" />
-      </CardContent>
-    </Card>
-  );
 }
