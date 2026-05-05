@@ -3,6 +3,7 @@ import {
   doc,
   addDoc,
   updateDoc,
+  deleteDoc,
   getDoc,
   getDocs,
   query,
@@ -140,6 +141,21 @@ export async function saveResult(sessionId, { result, severity, feedback, notes,
 export async function patchSession(sessionId, fields) {
   await updateDoc(doc(db, QA_SESSIONS, sessionId), {
     ...fields,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+// ─────────────────────────────────────────
+// SESSION MANAGEMENT
+// ─────────────────────────────────────────
+
+export async function deleteSession(sessionId) {
+  await deleteDoc(doc(db, QA_SESSIONS, sessionId));
+}
+
+export async function reopenSession(sessionId) {
+  await updateDoc(doc(db, QA_SESSIONS, sessionId), {
+    status: "testing",
     updatedAt: serverTimestamp(),
   });
 }

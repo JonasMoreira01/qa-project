@@ -3,6 +3,8 @@ import {
   getQASession,
   updateChecklist,
   saveResult,
+  deleteSession,
+  reopenSession,
   formatDuration,
 } from "../lib/firestore";
 import { useTimer } from "../hooks/useTimer";
@@ -94,6 +96,29 @@ export function SessionView({ sessionId, onBack, theme, onToggleTheme }) {
       await load();
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm("Tem certeza que deseja excluir esta análise? Não será possível recuperar.")) {
+      return;
+    }
+    try {
+      await deleteSession(sessionId);
+      onBack();
+    } catch (e) {
+      console.error("Erro ao deletar sessão:", e);
+      alert("Erro ao deletar análise. Tente novamente.");
+    }
+  };
+
+  const handleReopen = async () => {
+    try {
+      await reopenSession(sessionId);
+      await load();
+    } catch (e) {
+      console.error("Erro ao reabrir sessão:", e);
+      alert("Erro ao reabrir análise. Tente novamente.");
     }
   };
 
@@ -468,15 +493,25 @@ export function SessionView({ sessionId, onBack, theme, onToggleTheme }) {
         )}
 
         {done && (
-          <div className="text-center py-8 bg-[var(--color-success-bg)] rounded-xl border border-[var(--color-success)]/20 mb-8">
-            <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-[var(--color-success)]/20 flex items-center justify-center">
-              <span className="text-3xl">✓</span>
+          <>
+            <div className="text-center py-8 bg-[var(--color-success-bg)] rounded-xl border border-[var(--color-success)]/20 mb-8">
+              <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-[var(--color-success)]/20 flex items-center justify-center">
+                <span className="text-3xl">✓</span>
+              </div>
+              <p className="text-lg font-semibold text-[var(--color-success)]">Sessão finalizada</p>
+              <p className="text-sm text-[var(--color-text-muted)] mt-1">
+                Resultado: {result === "approved" ? "Aprovado" : result === "approved_with_notes" ? "Aprovado c/ ressalvas" : "Reprovado"}
+              </p>
             </div>
-            <p className="text-lg font-semibold text-[var(--color-success)]">Sessão finalizada</p>
-            <p className="text-sm text-[var(--color-text-muted)] mt-1">
-              Resultado: {result === "approved" ? "Aprovado" : result === "approved_with_notes" ? "Aprovado c/ ressalvas" : "Reprovado"}
-            </p>
-          </div>
+            <div className="flex gap-3 justify-center pb-8">
+              <Button variant="secondary" onClick={handleReopen}>
+                ↺ Reabrir análise
+              </Button>
+              <Button variant="ghost" onClick={handleDelete} className="text-[var(--color-error)] hover:text-[var(--color-error)] hover:bg-[var(--color-error-bg)]/20">
+                🗑 Excluir análise
+              </Button>
+            </div>
+          </>
         )}
       </main>
 
